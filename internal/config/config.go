@@ -1,17 +1,23 @@
 package config
 
-import "os"
+import (
+	"os"
+	"time"
+)
 
-type ConfigStruct struct {
-	Token string
-	DbURL string
-}
+var (
+	Token           string
+	DbURL           string
+	WebHookHost     string
+	HandlersTimeout time.Duration
+)
 
-var Config ConfigStruct
-
-func NewConfig() {
-	Config = ConfigStruct{
-		Token: os.Getenv("TOKEN"),
-		DbURL: os.Getenv("DATABASE_URL"),
-	}
+func InitConfig() error {
+	Token = os.Getenv("TOKEN")
+	DbURL = os.Getenv("DATABASE_URL")
+	WebHookHost = os.Getenv("WEB_HOOK_HOST")
+	timeoutString := os.Getenv("HANDLERS_TIMEOUT")
+	var err error
+	HandlersTimeout, err = time.ParseDuration(timeoutString)
+	return err
 }

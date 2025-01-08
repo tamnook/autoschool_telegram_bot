@@ -21,11 +21,12 @@ func main() {
 	defer cancel()
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, os.Interrupt)
-	done := make(chan struct{})
+	done := make(chan struct{}, 1)
 	go func() {
 		<-sigs
 		fmt.Println("Stopping...")
 		time.Sleep(2 * time.Second)
+		cancel()
 		done <- struct{}{}
 	}()
 
@@ -54,10 +55,7 @@ func main() {
 		log.Fatalf("error creating bot: %v", err)
 	}
 
-	err = b.Start(ctx)
-	if err != nil {
-		log.Fatalf("error starting bot: %v", err)
-	}
+	b.Start(ctx)
 	select {
 	case <-ctx.Done():
 		fmt.Printf("context error: %v\n", ctx.Err())

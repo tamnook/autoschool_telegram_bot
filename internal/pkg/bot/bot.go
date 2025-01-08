@@ -10,7 +10,6 @@ import (
 	"github.com/tamnook/autoschool_telegram_bot/internal/config"
 	"github.com/tamnook/autoschool_telegram_bot/internal/pkg/repository"
 	"github.com/valyala/fasthttp"
-	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -18,7 +17,7 @@ const (
 )
 
 type Bot interface {
-	Start(ctx context.Context) error
+	Start(ctx context.Context)
 }
 
 type bot struct {
@@ -59,20 +58,17 @@ func NewBot(ctx context.Context, telebot *telego.Bot, server *fasthttp.Server, r
 	return bot, nil
 }
 
-func (bot *bot) Start(ctx context.Context) error {
-	eg, _ := errgroup.WithContext(ctx)
+func (bot *bot) Start(ctx context.Context) {
 
-	eg.Go(func() error {
-		err := bot.telebot.StartWebhook("localhost:443")
-		return err
-	})
+	go func() {
+		_ = bot.telebot.StartWebhook("localhost:443")
+	}()
+
+	go func() {
+		<-ctx.Done()
+		bot.bh.Stop()
+		bot.telebot.StopWebhook()
+	}()
 
 	bot.bh.Start()
-
-	err := eg.Wait()
-	if err != nil {
-		return nil
-	}
-
-	return err
 }

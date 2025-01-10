@@ -12,6 +12,7 @@ import (
 	"github.com/mymmrac/telego"
 	"github.com/tamnook/autoschool_telegram_bot/internal/config"
 	"github.com/tamnook/autoschool_telegram_bot/internal/pkg/bot"
+	"github.com/tamnook/autoschool_telegram_bot/internal/pkg/cache"
 	"github.com/tamnook/autoschool_telegram_bot/internal/pkg/repository"
 	"github.com/valyala/fasthttp"
 )
@@ -40,7 +41,7 @@ func main() {
 
 	telebot, err := telego.NewBot(config.Token, telego.WithDefaultDebugLogger())
 	if err != nil {
-		fmt.Println(err)
+		fmt.Printf("Ошибка создания бота: %s", err)
 	}
 
 	repo, err := repository.NewRepository(ctx)
@@ -48,14 +49,18 @@ func main() {
 		log.Fatalf("error creating repository: %v", err)
 	}
 
+	cacheMu := cache.NewCacheMu(repo)
+	cacheMu.StartAutoCacheRefresh(ctx, config.CacheRefreshDuration)
+
 	server := &fasthttp.Server{}
 
-	b, err := bot.NewBot(ctx, telebot, server, repo)
+	b, err := bot.NewBot(ctx, telebot, server, repo, cacheMu)
 	if err != nil {
 		log.Fatalf("error creating bot: %v", err)
 	}
 
 	b.Start(ctx)
+
 	select {
 	case <-ctx.Done():
 		fmt.Printf("context error: %v\n", ctx.Err())

@@ -8,6 +8,7 @@ import (
 	"github.com/mymmrac/telego"
 	th "github.com/mymmrac/telego/telegohandler"
 	"github.com/tamnook/autoschool_telegram_bot/internal/config"
+	"github.com/tamnook/autoschool_telegram_bot/internal/pkg/cache"
 	"github.com/tamnook/autoschool_telegram_bot/internal/pkg/repository"
 	"github.com/valyala/fasthttp"
 )
@@ -25,12 +26,14 @@ type bot struct {
 	repo    repository.Repository
 	updates <-chan telego.Update
 	bh      *th.BotHandler
+	cache   cache.CacheMu
 }
 
-func NewBot(ctx context.Context, telebot *telego.Bot, server *fasthttp.Server, repo repository.Repository) (Bot, error) {
+func NewBot(ctx context.Context, telebot *telego.Bot, server *fasthttp.Server, repo repository.Repository, cache cache.CacheMu) (Bot, error) {
 	bot := &bot{
 		telebot: telebot,
 		repo:    repo,
+		cache:   cache,
 	}
 	srv := telego.FuncWebhookServer{
 		Server: telego.FastHTTPWebhookServer{
@@ -50,18 +53,19 @@ func NewBot(ctx context.Context, telebot *telego.Bot, server *fasthttp.Server, r
 	if err != nil {
 		return nil, errors.New("error th.NewBotHandler")
 	}
-
-	bot.bh.Handle(func(b *telego.Bot, update telego.Update) {
-		bot.startHandler(ctx, b, update)
-	}, th.CommandEqual("start"))
+	// bot.bh.Handle(func(b *telego.Bot, update telego.Update) {
+	// 	bot.startHandler(ctx, b, update)
+	// }, th.CommandEqual("start"))
+	// bot.bh.Handle(func(b *telego.Bot, update telego.Update) {
+	// 	bot.registrationHandler(ctx, b, update)
+	// }, th.CommandEqual("registration"))
 
 	return bot, nil
 }
-
 func (bot *bot) Start(ctx context.Context) {
 
 	go func() {
-		_ = bot.telebot.StartWebhook("localhost:443")
+		_ = bot.telebot.StartWebhook("192.168.1.17:443")
 	}()
 
 	go func() {
@@ -69,6 +73,14 @@ func (bot *bot) Start(ctx context.Context) {
 		bot.bh.Stop()
 		bot.telebot.StopWebhook()
 	}()
+
+	for update := range bot.updates {
+		if update.Message != nil {
+			bot.handleMessage(ctx, bot.telebot, update)
+		} else if update.CallbackQuery != nil {
+			bot.handleCallback(ctx, bot.telebot, update.CallbackQuery)
+		}
+	}
 
 	bot.bh.Start()
 }

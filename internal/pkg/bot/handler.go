@@ -10,66 +10,81 @@ import (
 	"github.com/google/uuid"
 	"github.com/mymmrac/telego"
 	"github.com/mymmrac/telego/telegoutil"
+	"github.com/samber/lo"
 	"github.com/tamnook/autoschool_telegram_bot/internal/pkg/entity"
 )
 
 var (
-	expectingFullName bool
-	expectingPhone    bool
-	userData          = make(map[int64]string)
+	student = entity.Student{}
 )
 
 func MainMenu() *telego.ReplyKeyboardMarkup {
 	return &telego.ReplyKeyboardMarkup{
 		Keyboard: [][]telego.KeyboardButton{
-			{{Text: "📝 Регистрация"}, {Text: "📚 Часто задаваемые вопросы"}},
+			{{Text: "📚 Часто задаваемые вопросы"}},
 			{{Text: "📞 Связь с менеджером"}, {Text: "🔔 Уведомления"}},
 		},
 		ResizeKeyboard: true,
 	}
 }
-func startHandler(_ context.Context, bot *telego.Bot, update telego.Update) {
-	_, _ = bot.SendMessage(telegoutil.MessageWithEntities(
-		telegoutil.ID(update.Message.Chat.ID),
-		telegoutil.Entity("Добро пожаловать в автошколу🚘 \nВыберите действие из меню:"),
-	).WithReplyMarkup(MainMenu()))
+func (b *bot) startHandler(ctx context.Context, bot *telego.Bot, update telego.Update) {
+	b.cache.InitStudentsCache(ctx, update.Message.Chat.ID)
+	student = b.cache.GetStudentCache(update.Message.Chat.ID)
+	fmt.Println(student)
+	if lo.FromPtr(student.FullName) == "" || lo.FromPtr(student.Phone) == "" {
+		text := "Введите номер телефона (в формате +7ХХХХХХХХХХ):"
+		if lo.FromPtr(student.FullName) == "" {
+			text = "Введите ФИО в формате:\nФамилия Имя Отчество (все обязательно с большой буквы, без лишних символов)"
+		}
+		_, _ = bot.SendMessage(telegoutil.MessageWithEntities(
+			telegoutil.ID(update.Message.Chat.ID),
+			telegoutil.Entity("Добро пожаловать в автошколу🚘"+"\n"+text),
+		))
+	} else {
+		_, _ = bot.SendMessage(telegoutil.MessageWithEntities(
+			telegoutil.ID(update.Message.Chat.ID),
+			telegoutil.Entity("Добро пожаловать в автошколу🚘 \nВыберите действие из меню:"),
+		).WithReplyMarkup(MainMenu()))
+	}
 }
 
 func (b *bot) validateInput(ctx context.Context, bot *telego.Bot, update telego.Update) {
 	chatID := update.Message.Chat.ChatID()
 	text := update.Message.Text
 	ID := uuid.New()
-	fmt.Printf("expectingFullName: %v", update.Message.Chat.Username)
-	if expectingFullName {
+	if lo.FromPtr(student.FullName) == "" {
 		if isValidFullName(text) {
-			expectingFullName = false
-			expectingPhone = true
-			err := b.repo.SaveFullNameStudent(ctx, entity.Student{ID: ID, FullName: text, TelegramChatID: chatID.ID, TelegramUserName: update.Message.Chat.Username})
+			err := b.repo.SaveFullNameStudent(ctx, entity.Student{ID: ID, FullName: lo.ToPtr(text), TelegramChatID: chatID.ID, TelegramUserName: lo.ToPtr(update.Message.Chat.Username)})
 			if err != nil {
 				fmt.Printf("Ошибка сохранения студента: %v", err)
+				return
 			}
+			student.FullName = lo.ToPtr(text)
+			b.cache.SetStudentCache(student)
 			_, _ = bot.SendMessage(telegoutil.Message(chatID, "Введите номер телефона (в формате +7ХХХХХХХХХХ):"))
 		} else {
 			_, _ = bot.SendMessage(telegoutil.Message(chatID, "❌ ФИО введено некорректно. Попробуйте еще раз."))
-			expectingFullName = true
 		}
-	} else if expectingPhone {
+	} else if lo.FromPtr(student.Phone) == "" {
 		if isValidPhoneNumber(text) {
-			expectingPhone = false
-			err := b.repo.SavePhoneStudent(ctx, entity.Student{ID: ID, Phone: text, TelegramChatID: chatID.ID, TelegramUserName: update.Message.Chat.Username})
+			err := b.repo.SavePhoneStudent(ctx, entity.Student{ID: ID, Phone: lo.ToPtr(text), TelegramChatID: chatID.ID, TelegramUserName: lo.ToPtr(update.Message.Chat.Username)})
 			if err != nil {
 				fmt.Printf("Ошибка сохранения студента: %v", err)
+				return
 			}
+			student.Phone = lo.ToPtr(text)
 			_, _ = bot.SendMessage(telegoutil.Message(chatID, "✅ Регистрация завершена!"))
+			b.cache.InitStudentsCache(ctx, update.Message.Chat.ID)
+			b.startHandler(ctx, bot, update)
 		} else {
 			_, _ = bot.SendMessage(telegoutil.Message(chatID, "❌ Номер телефона введен некорректно. Попробуйте еще раз."))
 		}
+	} else {
+		_, _ = bot.SendMessage(telegoutil.MessageWithEntities(
+			telegoutil.ID(update.Message.Chat.ID),
+			telegoutil.Entity("Неизвестная команда. Используйте меню."),
+		).WithReplyMarkup(MainMenu()))
 	}
-
-	// _, _ = bot.SendMessage(telegoutil.MessageWithEntities(
-	// 	telegoutil.ID(update.Message.Chat.ID),
-	// 	telegoutil.Entity("Введите ваше ФИО (Фамилия Имя Отчество):"),
-	// ).WithReplyMarkup(MainMenu()))
 }
 func (b *bot) sendFAQMenuHandler(ctx context.Context, bot *telego.Bot, update telego.Update) {
 	chatID := update.Message.Chat.ChatID()
@@ -88,32 +103,38 @@ func (b *bot) sendFAQMenuHandler(ctx context.Context, bot *telego.Bot, update te
 
 	_, _ = bot.SendMessage(msg)
 }
+
+// Связь с менеджером
+func (b *bot) sendManagerContact(ctx context.Context, bot *telego.Bot, update telego.Update) {
+	chatID := update.Message.Chat.ChatID()
+	_, _ = bot.SendMessage(telegoutil.Message(chatID, "☎️ Связаться с менеджером: +7 900 123 45 67"))
+}
+
 func (b *bot) handleMessage(ctx context.Context, bot *telego.Bot, update telego.Update) {
+	student = b.cache.GetStudentCache(update.Message.Chat.ID)
+	if student == (entity.Student{}) {
+		chatID := update.Message.Chat.ChatID()
+		ID := uuid.New()
+		err := b.repo.CreateStudent(ctx, entity.Student{ID: ID, TelegramChatID: chatID.ID, TelegramUserName: lo.ToPtr(update.Message.Chat.Username)})
+		if err != nil {
+			fmt.Printf("Ошибка создания студента: %v", err)
+			return
+		}
+	}
+
 	switch update.Message.Text {
 	case "/start":
-		startHandler(ctx, bot, update)
+		b.startHandler(ctx, bot, update)
 	case "📚 Часто задаваемые вопросы":
 		b.sendFAQMenuHandler(ctx, bot, update)
-	// case "📞 Связаться с менеджером":
-	// 	sendManagerContact(bot, update.Message.Chat.ID)
-	// case "📩 Обратный звонок":
-	// 	requestCallback(bot, update.Message.Chat.ID)
+	case "📞 Связаться с менеджером":
+		b.sendManagerContact(ctx, bot, update)
 	// case "📅 Расписание":
 	// 	sendSchedule(bot, update.Message.Chat.ID)
 	// case "🔔 Уведомления":
 	// 	sendNotifications(bot, update.Message.Chat.ID)
-	case "📝 Регистрация":
-		bot.SendMessage(telegoutil.MessageWithEntities(
-			telegoutil.ID(update.Message.Chat.ID),
-			telegoutil.Entity("Введите ваше ФИО (Фамилия Имя Отчество):")))
-		b.validateInput(ctx, bot, update)
-		expectingFullName = true
-		//b.registrationHandler(ctx, bot, update)
 	default:
 		b.validateInput(ctx, bot, update)
-		// bot.SendMessage(telegoutil.MessageWithEntities(
-		// 	telegoutil.ID(update.Message.Chat.ID),
-		// 	telegoutil.Entity("Неизвестная команда. Используйте меню.")))
 	}
 }
 

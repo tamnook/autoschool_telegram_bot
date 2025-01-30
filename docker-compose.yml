@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"  # Проброс порта для Go-приложения
+    depends_on:
+      - db
+    environment:
+      - DB_HOST=localhost
+      - DB_USER=postgres
+      - DB_PASSWORD=password
+      - DB_NAME=postgres
+      - DB_PORT=5432
+      - TOKEN=7721119498:AAEE22WAOscDEL0glo6Bl4lINOzEh46ni8I
+      - DATABASE_URL=host=localhost user=postgres password=fork4Frog dbname=postgres port=5432 sslmode=disable
+      - NGROK_AUTHTOKEN=2iYuiEwECeNC7oUMa3m1jEsjcKk_5krSaA9Ysmnv67vKazaz7
+      - WEB_HOOK_HOST=https://botleader.ddns.net
+      - HANDLERS_TIMEOUT=10s
+      - CACHE_REFRESH_DURATION=600s
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"  # Проброс порта для Postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

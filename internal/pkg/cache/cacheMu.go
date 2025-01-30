@@ -13,8 +13,11 @@ import (
 
 type CacheMu interface {
 	StartAutoCacheRefresh(ctx context.Context, interval time.Duration)
+	InitStudentsCache(ctx context.Context, idTelegram int64)
 	GetFAQCache(id int64) entity.FAQStruct
 	GetAllFAQCache() []entity.FAQStruct
+	GetStudentCache(idTelegram int64) entity.Student
+	SetStudentCache(student entity.Student) entity.Student
 }
 
 type cacheMu struct {
@@ -29,6 +32,7 @@ func NewCacheMu(repo repository.Repository) CacheMu {
 
 var (
 	faqCache  = make(map[int64]entity.FAQStruct) // Кэшируем вопросы и ответы
+	students  = make(map[int64]entity.Student)   // Кэшируем вопросы и ответы
 	cacheRWMu sync.RWMutex                       // Для безопасного доступа к кэшу
 )
 
@@ -64,4 +68,23 @@ func (c *cacheMu) StartAutoCacheRefresh(ctx context.Context, interval time.Durat
 			c.initFAQCache(ctx)
 		}
 	}()
+}
+func (c *cacheMu) InitStudentsCache(ctx context.Context, idTelegram int64) {
+	cacheRWMu.Lock()
+	defer cacheRWMu.Unlock()
+
+	studentStruct, err := c.repo.GetStudent(ctx, idTelegram)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	// Добавляем в кэш
+	students[studentStruct.TelegramChatID] = studentStruct
+}
+func (c *cacheMu) GetStudentCache(idTelegram int64) entity.Student {
+	return students[idTelegram]
+}
+func (c *cacheMu) SetStudentCache(student entity.Student) entity.Student {
+	students[student.TelegramChatID] = student
+	return students[student.TelegramChatID]
 }

@@ -53,19 +53,14 @@ func NewBot(ctx context.Context, telebot *telego.Bot, server *fasthttp.Server, r
 	if err != nil {
 		return nil, errors.New("error th.NewBotHandler")
 	}
-	// bot.bh.Handle(func(b *telego.Bot, update telego.Update) {
-	// 	bot.startHandler(ctx, b, update)
-	// }, th.CommandEqual("start"))
-	// bot.bh.Handle(func(b *telego.Bot, update telego.Update) {
-	// 	bot.registrationHandler(ctx, b, update)
-	// }, th.CommandEqual("registration"))
 
 	return bot, nil
 }
 func (bot *bot) Start(ctx context.Context) {
 
 	go func() {
-		_ = bot.telebot.StartWebhook("192.168.1.17:443")
+		//_ = bot.telebot.StartWebhook("192.168.1.17:443")
+		_ = bot.telebot.StartWebhook("localhost:443")
 	}()
 
 	go func() {

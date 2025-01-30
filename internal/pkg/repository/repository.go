@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/jackc/pgx/v4"
 	"github.com/tamnook/autoschool_telegram_bot/internal/config"
@@ -10,7 +9,7 @@ import (
 )
 
 type Repository interface {
-	GetCatalog(ctx context.Context) (catalog []entity.Catalog, err error)
+	GetStudent(ctx context.Context, idTelegram int64) (item entity.Student, err error)
 	GetCommands(ctx context.Context) (commands []entity.Command, err error)
 	GetFAQQuestions(ctx context.Context) (commands []entity.FAQStruct, err error)
 	SaveFullNameStudent(ctx context.Context, student entity.Student) (err error)
@@ -42,26 +41,20 @@ func NewRepository(ctx context.Context) (repository *repositoryStruct, err error
 	return
 }
 
-func (repository *repositoryStruct) GetCatalog(ctx context.Context) (catalog []entity.Catalog, err error) {
-	catalog = make([]entity.Catalog, 0)
-	rows, err := repository.conn.Query(ctx, `SELECT * FROM services`)
+func (repository *repositoryStruct) GetStudent(ctx context.Context, idTelegram int64) (item entity.Student, err error) {
+	row := repository.conn.QueryRow(ctx, `SELECT * FROM students where telegram_chat_id = $1 limit 1`, idTelegram)
+
+	err = row.Scan(
+		&item.ID,
+		&item.FullName,
+		&item.Phone,
+		&item.TelegramChatID,
+		&item.TelegramUserName,
+	)
 	if err != nil {
-		return nil, err
+		return item, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var item entity.Catalog
-		err = rows.Scan(
-			&item.Name,
-			&item.Price,
-			&item.Id,
-		)
-		if err != nil {
-			return catalog, err
-		}
-		catalog = append(catalog, item)
-	}
-	return
+	return item, nil
 }
 
 func (repository *repositoryStruct) GetCommands(ctx context.Context) (commands []entity.Command, err error) {
@@ -87,7 +80,6 @@ func (repository *repositoryStruct) GetCommands(ctx context.Context) (commands [
 }
 
 func (repository *repositoryStruct) CreateStudent(ctx context.Context, student entity.Student) (err error) {
-	fmt.Printf("%v, %v, %v", student.ID, student.TelegramChatID, student.TelegramUserName)
 	_, err = repository.conn.Exec(ctx, "INSERT INTO students (id, telegram_chat_id, telegram_user_name) VALUES ($1, $2, $3) ON CONFLICT (telegram_chat_id) DO NOTHING", student.ID, student.TelegramChatID, student.TelegramUserName)
 	return err
 }

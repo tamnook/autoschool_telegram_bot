@@ -1,7 +1,7 @@
 # Используем официальный образ Go
 FROM golang:1.21-alpine
 
-RUN apt-get update && apt-get install -y git
+RUN apk add --no-cache git
 
 # Устанавливаем рабочую директорию
 WORKDIR /app

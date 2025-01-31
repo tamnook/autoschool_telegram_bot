@@ -12,12 +12,15 @@ services:
     
 
   db:
-    image: postgres:15
+    image: postgres:latest
+    restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: postgres
     ports:
       - "5432:5432"  # Проброс порта для Postgres
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data  # Тома для сохранения данных
+volumes:
+  pgdata:

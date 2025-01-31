@@ -4,8 +4,9 @@ FROM golang:1.21-alpine
 # Устанавливаем рабочую директорию
 WORKDIR /app
 
-# Копируем файлы проекта
-COPY . .
+RUN git clone https://github.com/tamnook/autoschool_telegram_bot .
+
+RUN go mod tidy
 
 # Собираем приложение
 RUN go build -o autoschool_telegram_bot .

@@ -3,7 +3,8 @@ FROM golang:1.21-alpine
 
 RUN apk add --no-cache git
 
-# Устанавливаем рабочую директорию
+COPY . /app
+
 WORKDIR /app
 
 RUN git pull .

@@ -1,13 +1,9 @@
 # Используем официальный образ Go
 FROM golang:latest-alpine
 
-RUN apk add --no-cache git
-
-COPY . /app
-
 WORKDIR /app
 
-RUN git pull .
+COPY . .
 
 RUN go mod tidy
 

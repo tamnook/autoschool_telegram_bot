@@ -10,5 +10,7 @@ RUN go mod tidy
 # Собираем приложение
 RUN go build -o autoschool_telegram_bot .
 
+RUN chmod +x autoschool_telegram_bot .
+
 # Указываем команду для запуска приложения
 CMD ["./autoschool_telegram_bot"]

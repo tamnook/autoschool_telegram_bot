@@ -1,6 +1,6 @@
 module github.com/tamnook/autoschool_telegram_bot
 
-go 1.23.5
+go 1.22.0
 
 require (
 	github.com/fasthttp/router v1.5.0

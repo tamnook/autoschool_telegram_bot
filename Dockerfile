@@ -1,5 +1,5 @@
 # Используем официальный образ Go
-FROM golang:latest-alpine
+FROM golang:1.22-alpine
 
 WORKDIR /app
 
@@ -8,7 +8,9 @@ COPY . .
 RUN go mod tidy
 
 # Собираем приложение
-RUN go build -o autoschool_telegram_bot .
+RUN go build -o -v autoschool_telegram_bot .
+
+RUN ls -la /app
 
 RUN chmod +x autoschool_telegram_bot .
 
